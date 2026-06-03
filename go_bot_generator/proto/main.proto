@@ -1,0 +1,26 @@
+syntax="proto3";
+
+package main;
+
+option go_package="/proto/gen;genpb";
+
+service LoadGeneration{
+    rpc StartLoad(StartingRequest) returns (StartingResponse);
+    rpc StopLoad(StoppingRequest) returns (StoppingResponse);
+}
+
+message StartingRequest{
+    string URL=1;
+}
+
+message StartingResponse{
+    string Message=1;
+}
+
+message StoppingRequest{
+    string Message=1;
+}
+
+message StoppingResponse{
+    string Message=1;
+}

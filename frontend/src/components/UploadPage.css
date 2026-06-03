@@ -1,0 +1,108 @@
+.upload-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh;
+  padding: 20px;
+}
+
+.upload-card {
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  text-align: center;
+}
+
+.upload-title {
+  color: #fff;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.upload-subtitle {
+  color: #aaa;
+  font-size: 14px;
+  margin-bottom: 30px;
+}
+
+.drag-drop-zone {
+  border: 2px dashed #4f46e5;
+  background: #121212;
+  border-radius: 8px;
+  padding: 40px 20px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-bottom: 20px;
+}
+
+.drag-drop-zone:hover {
+  background: #181818;
+}
+
+.cloud-icon {
+  font-size: 40px;
+  margin-bottom: 15px;
+}
+
+.selected-file-name {
+  color: #34d399;
+}
+
+.file-limits {
+  font-size: 11px;
+  color: #666;
+  display: block;
+  margin-top: 15px;
+}
+
+.submit-btn {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.submit-btn:disabled {
+  background: #2d2d2d;
+  color: #777;
+  cursor: not-allowed;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #4338ca;
+}
+
+.status-banner {
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.status-banner.info {
+  background: rgba(79, 70, 229, 0.1);
+  color: #818cf8;
+  border: 1px solid #4f46e5;
+}
+
+.status-banner.success {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  border: 1px solid #059669;
+}
+
+.status-banner.error {
+  background: rgba(248, 113, 113, 0.1);
+  color: #f87171;
+  border: 1px solid #dc2626;
+}

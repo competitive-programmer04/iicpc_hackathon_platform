@@ -1,0 +1,162 @@
+.leaderboard-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.leaderboard-header-section{
+  margin-bottom: 30px;
+}
+
+.leaderboard-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.leaderboard-subtitle {
+  font-size: 14px;
+  color: #88888e;
+}
+
+/* Search and Action wrapper */
+.search-filter-wrapper {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.search-input {
+  background-color: #111112;
+  border: 1px solid #1f1f22;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  max-width: 300px;
+  width: 100%;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.back-submit-btn {
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.back-submit-btn:hover {
+  background-color: #4338ca;
+}
+
+/* Table styling */
+.table-responsive-wrapper {
+  background-color: #111112;
+  border: 1px solid #1f1f22;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.leaderboard-table th {
+  background-color: #161618;
+  color: #88888e;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 16px 20px;
+  border-bottom: 1px solid #1f1f22;
+}
+
+.leaderboard-table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid #1f1f22;
+  font-size: 14px;
+  color: #e2e8f0;
+}
+
+/* Specific cell highlights */
+.leaderboard-table tr:hover {
+  background-color: #161618;
+}
+
+.top-rank-row {
+  background-color: rgba(99, 102, 241, 0.05); /* Highlight first place */
+}
+
+.rank-cell {
+  font-weight: 700;
+}
+
+.team-cell {
+  font-weight: 600;
+  color: #fff;
+}
+
+.score-cell {
+  font-weight: 700;
+  color: #818cf8;
+}
+
+/* Loading & Errors */
+.leaderboard-status-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.loader-small {
+  border: 3px solid #111112;
+  border-top: 3px solid #4f46e5;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+.leaderboard-error-banner {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.no-teams-found {
+  text-align: center;
+  color: #88888e;
+  padding: 40px !important;
+}
+
+@media (max-width: 768px) {
+  .search-filter-wrapper {
+    flex-direction: column;
+  }
+  .search-input, .back-submit-btn {
+    width: 100%;
+    max-width: none;
+  }
+  .leaderboard-table th, .leaderboard-table td {
+    padding: 12px 10px;
+    font-size: 12px;
+  }
+}
