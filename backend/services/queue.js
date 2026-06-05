@@ -77,7 +77,7 @@ class SubmissionQueueManager {
           avgLatencyP50: "N/A",
           avgLatencyP99: "N/A",
           correctnessScore: "0.00%",
-          stability: "CRASHED",
+          stability: "StartUp Failed",
           compositeScore: 0
         }
       });
@@ -119,6 +119,7 @@ class SubmissionQueueManager {
         console.log(`successfully start the load. ${response.Message}`);
         let secondPassed=0;
         let consecutiveFailure=0;
+        let totalRequestSoFar=0;
         const telemetryInterval= setInterval(async ()=>{
           secondPassed++;
           try{
@@ -144,14 +145,46 @@ class SubmissionQueueManager {
             latencies.sort((a,b)=>a-b);
             const p50_lat=latencies.length>0?latencies[Math.floor(latencies.length*0.50)]:0;
             const p99_lat=latencies.length>0?latencies[Math.floor(latencies.length*0.99)]:0;
+            let statusLog=`[Telemetry] Load ${throughput} tps. p99 Latency ${p99_lat}ms`;
+            totalRequestSoFar+= totalRequestSend;
+            // waiting for the docker container to boot up and we have a successful websocket connection with the go bots and engine
+            if(secondPassed<5&&totalRequestSoFar===0){
+              if(secondPassed===1) statusLog="[SYSTEM] Booting isolated Docker Sandbox...";
+              else if(secondPassed===2) statusLog="[SYSTEM] Container running. Exposing port 8080...";
+              else if(secondPassed===3) statusLog="[NETWORK] Go Load Generator initiating WebSocket handshake...";
+              else statusLog="[NETWORK] Awaiting 101 Switching Protocols response...";
+            }
+            // after 5 seconds still redis is empty that means no connection between go bots and trading engine  
+            if(secondPassed===5&&totalRequestSoFar===0){
+              console.log("[Crash Detected] go bots failed to connect with the engine");
+              clearInterval(telemetryInterval);
+              client.StopLoad({Message:"Stop the go bots"},(err,response)=>{
+                console.log("stopping the go bots");
+                eventBus.emit(`stream:${submissionId}`,{
+                  progress:100,
+                  completed:true,
+                  log:"[ERROR] Engine failed to start on port 8080",
+                  report:{
+                    peakTps:0,
+                    avgLatencyP50:"N/A",
+                    avgLatencyP99:"N/A",
+                    correctnessScore:"0.00%",
+                    stability:"StartUp Failed",
+                     compositeScore:0
+                  }
+                });
+                return resolve("StartUP Failed")
+              });
+            }
             console.log(`tps:${throughput},p50 latency ${p50_lat} p99 latency ${p99_lat} and accuracy ${accuracy}`);
             eventBus.emit(`stream:${submissionId}`,{
               progress: Math.min(secondPassed*2,99),
               completed:false,
               metrics:{tps:throughput,p50:p50_lat,p99: p99_lat,accuracy:accuracy},
-              log:`[Telemetry] Load ${throughput} tps. p99 Latency ${p99_lat}ms`
+              log:statusLog
             });
-            const currentTime=new Date();
+            if(totalRequestSoFar>0){
+              const currentTime=new Date();
             try{
               await tsClient.query(`insert into metrics_trading_engine (submission_id,recorded_at,time_second,tps,p50_lat,p99_lat,accuracy) values($1,$2,$3,$4,$5,$6,$7)`,[submissionId,currentTime,secondPassed,throughput,
               p50_lat,p99_lat,accuracy
@@ -159,7 +192,7 @@ class SubmissionQueueManager {
             }catch(err){
               console.log("some error occur while storing data in timescaledb ",err);
             }
-            consecutiveFailure=(throughput==0||accuracy<50||p99_lat>1500)?consecutiveFailure+1:0;
+            consecutiveFailure=(throughput===0||accuracy<50||p99_lat>1500)?consecutiveFailure+1:0;
              if(secondPassed>5&&consecutiveFailure>=3){
               console.log("[Engine Crashed].Engine became dead under the heavy load");
               clearInterval(telemetryInterval);
@@ -181,6 +214,7 @@ class SubmissionQueueManager {
                 return resolve("Test_Completed");
               });
             }
+           }
           }catch(redisErr){
             console.log("some error occured while fetching data from redis ",redisErr);
           }

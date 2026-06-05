@@ -74,7 +74,7 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
   const [connectionStatus, setConnectionStatus] = useState('CONNECTING'); 
   
   const [telemetryData, setTelemetryData] = useState([]);
-  const [currentMetrics, setCurrentMetrics] = useState({ tps: 0, p50: 0, p90: 0, p99: 0, accuracy: 100 });
+  const [currentMetrics, setCurrentMetrics] = useState({ tps: 0, p50: 0, p99: 0, accuracy: 100 });
   const [logs, setLogs] = useState([]);
 
   // Final Summary Report
@@ -134,7 +134,6 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
           setCurrentMetrics({
             tps: data.metrics.tps,
             p50: data.metrics.p50,
-            p90: data.metrics.p90,
             p99: data.metrics.p99,
             accuracy: data.metrics.accuracy
           });

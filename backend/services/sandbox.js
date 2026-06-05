@@ -105,7 +105,6 @@ class DockerSandboxManager {
           reject(new Error(`Sandbox startup error: ${stderr.trim()}`));
         }
       });
-      //resolve(true);
     });
   }
 
