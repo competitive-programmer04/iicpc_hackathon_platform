@@ -17,7 +17,7 @@ export default function UploadPage({ userToken, onUploadSuccess }) {
 
     // Client-side Sanitization check
     const ext = selectedFile.name.split(".").pop();
-    const allowedExtensions = ["zip", ""]; // Extensionless binaries check
+    const allowedExtensions = [""]; // Extensionless binaries check
 
     // Minimal validation to give rapid UX feedback
     if (selectedFile.size > 50 * 1024 * 1024) {
@@ -53,7 +53,7 @@ export default function UploadPage({ userToken, onUploadSuccess }) {
 
     try {
       const response = await fetch(
-        "http://localhost:3000/api/v1/submissions/submit",
+        import.meta.env.VITE_UPLOAD_URL,
         {
           method: "POST",
           headers: {
@@ -101,7 +101,7 @@ export default function UploadPage({ userToken, onUploadSuccess }) {
       <div className="upload-card">
         <h2 className="upload-title">Secure Binary Submission</h2>
         <p className="upload-subtitle">
-          Upload statically compiled Linux executables or ZIP files containing
+          Upload statically compiled Linux executables files containing
           your codebase.
         </p>
 
@@ -125,7 +125,7 @@ export default function UploadPage({ userToken, onUploadSuccess }) {
               <p>Drag & Drop your compiled binary or Click to browse.</p>
             )}
             <span className="file-limits">
-              ZIP or executable file limits up to 50MB.
+             executable file limits up to 50MB.
             </span>
           </div>
 

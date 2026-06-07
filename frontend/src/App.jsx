@@ -153,7 +153,7 @@ useEffect(() => {
                   </button>
                   <button
                     onClick={() =>
-                      window.open("https://github.com/ASV-Group/IICPC-Hackathon")
+                      window.open("https://github.com/competitive-programmer04/iicpc_hackathon_platform.git")
                     }
                     className="cta-secondary"
                   >
@@ -169,7 +169,7 @@ useEffect(() => {
                   <h3>Secure Sandboxing</h3>
                   <p>
                     Strict CPU pinning and memory limits inside hardened isolation
-                    containers [1].
+                    containers
                   </p>
                 </div>
                 <div className="feature-card">
@@ -177,7 +177,7 @@ useEffect(() => {
                   <h3>Distributed Bot Fleet</h3>
                   <p>
                     Simulate volatile market movements with high-velocity
-                    concurrent orders [1].
+                    concurrent orders
                   </p>
                 </div>
                 <div className="feature-card">
@@ -185,7 +185,7 @@ useEffect(() => {
                   <h3>Live Telemetry</h3>
                   <p>
                     Track throughput limits, correctness priority, and latency
-                    metrics in real-time [1].
+                    metrics in real-time
                   </p>
                 </div>
               </div>

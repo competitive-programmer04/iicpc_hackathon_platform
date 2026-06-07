@@ -59,12 +59,12 @@ class SubmissionQueueManager {
       // Publish initial SSE log event [2]
       eventBus.emit(`stream:${submissionId}`, {
         progress: 10,
-        log: `[SYSTEM] Sandbox active at: http://localhost:${sandboxResult.mappedPort} [OK]`,
+        log: `[SYSTEM] Sandbox created for the trading engine [OK]`,
         completed: false
       });
 
       // Step B: Trigger Bot Fleet and pipe live performance updates to Event Bus
-      await this.triggerBotFleetAndStream(sandboxResult.mappedPort, submissionId);
+      await this.triggerBotFleetAndStream(submissionId,teamId);
 
     } catch (error) {
       console.error(`[QUEUE ERROR] Benchmark failed:`, error.message);
@@ -108,10 +108,12 @@ class SubmissionQueueManager {
   /**
    * Spawns Bot process and simulates/pipes telemetry data to SSE clients in real-time [2].
    */
-  async triggerBotFleetAndStream(port, submissionId){
+  async triggerBotFleetAndStream(submissionId,teamId){
     return new Promise((resolve,reject)=>{
-      console.log(`calling StartLoad() of the go grpc server at the port ${port}`);
-      client.StartLoad({URL:`ws://localhost:${port}/trade`},(err,response)=>{
+          const cleanTeamName = teamId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          const containerName = `sandbox-${cleanTeamName}-${submissionId}`;
+      console.log(`calling StartLoad() of the go grpc server to connect to the sandbox `);
+      client.StartLoad({URL:`ws://${containerName}:8080/trade`},(err,response)=>{
         if(err!==null){
           console.log("failed to start load due to the error ",err);
           return reject(err);
@@ -196,7 +198,7 @@ class SubmissionQueueManager {
              if(secondPassed>5&&consecutiveFailure>=3){
               console.log("[Engine Crashed].Engine became dead under the heavy load");
               clearInterval(telemetryInterval);
-              console.log(`calling StopLoad() of the go grpc server at the port ${port}`);
+              console.log(`calling StopLoad() of the go grpc server to stop the load`);
               client.StopLoad({Message:"Stop the test"},(err,response)=>{
                 console.log("stopping the go bots");
                 eventBus.emit(`stream:${submissionId}`,{

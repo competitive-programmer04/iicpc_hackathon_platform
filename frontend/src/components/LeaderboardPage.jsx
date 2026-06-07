@@ -10,7 +10,7 @@ export default function LeaderboardPage({ onBackToUpload }) {
   useEffect(() => {
     const fetchLeaderboard = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/v1/submissions/leaderboard');
+        const response = await fetch(import.meta.env.VITE_LEADERBOARD_URL);
         const result = await response.json();
 
         if (response.ok && result.success) {

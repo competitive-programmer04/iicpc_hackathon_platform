@@ -280,7 +280,7 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
             <button className="close-modal-btn" onClick={() => setShowSummary(false)}>✕</button>
 
             <h2>🏆 Benchmark Performance Summary</h2>
-            <p>Congratulations, your matching engine successfully completed the stress testing suite [1, 2]!</p>
+            <p>Congratulations, your trading engine successfully completed the stress testing suite !</p>
             
             <div className="report-grid">
               <div className="report-item">

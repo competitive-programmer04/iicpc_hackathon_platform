@@ -5,7 +5,7 @@ import helmet from "helmet";
 import { initializeApp, cert } from "firebase-admin/app";
 import { readFileSync, existsSync } from "fs";
 import {createClient} from "redis"
-import {Client as PostgresClient} from "pg";
+import pkg from "pg";
 import metricsRouter from "./routes/metrics.js";
 
 // Routes Imports
@@ -17,38 +17,59 @@ import streamRoutes from "./routes/stream.js"; // SSE routes for telemetry strea
 const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
 let initialized = false;
 
-export const redisClient=createClient({url:"redis://localhost:6379"});
-export const tsClient=new PostgresClient({connectionString:"postgresql://postgres:password@localhost:5433/iicpc_hackathon"});
+export const redisClient=createClient({url:process.env.REDIS_URL});
+const {Pool}=pkg
+export const tsClient=new Pool({connectionString:process.env.DATABASE_URL});
+
+const connectingWithTimeScaleDB= async()=>{
+  let max_number_retries=5;
+  while(max_number_retries>0){
+    try{
+      const connectionTest=await tsClient.connect();
+      console.log("connected with timescale db");
+      connectionTest.release() // putting the connection back in the pool
+      return;
+    }catch(err){
+      console.log("some error occured while connecting with database ",err);
+      max_number_retries-=1;
+      // waiting for 1 second after each try
+      await new Promise((resolve)=>{setTimeout(resolve,2000)})
+    }
+  }
+  console.error("Could not connect to database after multiple attempts.");
+  process.exit(1);
+}
 
 
 try{
   await redisClient.connect();
   console.log("connected with redisdb server running at port 6379");
-  await tsClient.connect();
-  console.log("connected with timescaledb server running at port 5432");
-  console.log("creating tables inside my iicpc_hackathon database");
-  const creatingTable=`
-  create table if not exists metrics_trading_engine(
-    id serial,
-    submission_id varchar(50) not null,
-    recorded_at timestamptz not null,
-    time_second int not null,
-    tps int,
-    p50_lat float,
-    p99_lat float,
-    accuracy float,
-    primary key (id,recorded_at)
-);
+  await connectingWithTimeScaleDB();
+//   await tsClient.connect();
+//   console.log("connected with timescaledb server running at port 5432");
+//   console.log("creating tables inside my iicpc_hackathon database");
+//   const creatingTable=`
+//   create table if not exists metrics_trading_engine(
+//     id serial,
+//     submission_id varchar(50) not null,
+//     recorded_at timestamptz not null,
+//     time_second int not null,
+//     tps int,
+//     p50_lat float,
+//     p99_lat float,
+//     accuracy float,
+//     primary key (id,recorded_at)
+// );
 
-select create_hypertable('metrics_trading_engine','recorded_at', if_not_exists => TRUE);
+// select create_hypertable('metrics_trading_engine','recorded_at', if_not_exists => TRUE);
 
-create table if not exists submissions(
-    id serial primary key,
-    team_id varchar(30),
-    submission_id varchar(50)
-);`;
-await tsClient.query(creatingTable);
-console.log("successfully created tables");
+// create table if not exists submissions(
+//     id serial primary key,
+//     team_id varchar(30),
+//     submission_id varchar(50)
+// );`;
+// await tsClient.query(creatingTable);
+//console.log("successfully created tables");
   try {
   if (serviceAccountPath && existsSync(serviceAccountPath)) {
     const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf-8"));

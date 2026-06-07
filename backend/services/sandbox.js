@@ -9,10 +9,10 @@ import net from 'net'; // Native Node.js module to query OS for free ports
  */
 class DockerSandboxManager {
   // Sandbox Configuration Limits (As per requirements)
-  static MEMORY_LIMIT = '512m';
+  static MEMORY_LIMIT = '1g';
   static CPU_LIMIT = '1';
-  static BASE_IMAGE = 'iicpc-sandbox-base:latest';
-  static CONTAINER_PORT = '8080'; // The standard internal port of contestant matching engines
+  //static BASE_IMAGE = 'iicpc-sandbox-base:latest';
+  //static CONTAINER_PORT = '8080'; // The standard internal port of contestant matching engines
 
   /**
    * Helper utility that queries the OS kernel for a guaranteed free TCP port.
@@ -20,19 +20,19 @@ class DockerSandboxManager {
    * 
    * @returns {Promise<number>} Ephemeral open port
    */
-  static async getFreePort() {
-    return new Promise((resolve, reject) => {
-      const server = net.createServer();
-      server.unref();
-      server.on('error', reject);
-      server.listen(0, () => {
-        const { port } = server.address();
-        server.close(() => {
-          resolve(port);
-        });
-      });
-    });
-  }
+  // static async getFreePort() {
+  //   return new Promise((resolve, reject) => {
+  //     const server = net.createServer();
+  //     server.unref();
+  //     server.on('error', reject);
+  //     server.listen(0, () => {
+  //       const { port } = server.address();
+  //       server.close(() => {
+  //         resolve(port);
+  //       });
+  //     });
+  //   });
+  // }
 
   /**
    * Spins up sandbox with dynamic port mapping (hostPort -> containerPort).
@@ -59,29 +59,37 @@ class DockerSandboxManager {
     }
 
     // 1. DYNAMICALLY ALLOCATE FREE PORT ON THE HOST
-    let hostPort;
-    try {
-      hostPort = await this.getFreePort();
-      console.log(`[SANDBOX] Ephemeral port allocated: ${hostPort} -> mapped to internal container port: ${this.CONTAINER_PORT}`);
-    } catch (portError) {
-      throw new Error(`Port allocation failed: ${portError.message}`);
-    }
+    // let hostPort;
+    // try {
+    //   hostPort = await this.getFreePort();
+    //   console.log(`[SANDBOX] Ephemeral port allocated: ${hostPort} -> mapped to internal container port: ${this.CONTAINER_PORT}`);
+    // } catch (portError) {
+    //   throw new Error(`Port allocation failed: ${portError.message}`);
+    // }
 
     // 2. Prepare Docker arguments with Port Forwarding parameter
     const args = [
       'run',
       '-d',
       '--name', containerName,
+      '--network',"project_network",
       '--memory', this.MEMORY_LIMIT,
       '--cpus', this.CPU_LIMIT,
-      '-p', `${hostPort}:${this.CONTAINER_PORT}`, // Forwarding: Host -> Container
-      '-v', `${path.resolve(hostBinaryPath)}:/app/my_engine`,
-      this.BASE_IMAGE,
-      '/app/my_engine'
+      // '-p', `${hostPort}:${this.CONTAINER_PORT}`, // Forwarding: Host -> Container
+      '-v', `trading_engine_volume:/sandbox_env`,
+      // this.BASE_IMAGE,
+
+      // security handling flags (low privileged mode)
+      '--user','65534:65534',// runing the trading engine as a nobody regular user(low privileged user)
+      '--cap-drop','ALL', // stripping awway all the kernel permissions
+      '--security-opt','no-new-privileges', // preventing the binary from escalating rights
+      // installing the latest ubuntu image 
+      "ubuntu:24.04",
+      `/sandbox_env/${path.basename(hostBinaryPath)}`
     ];
 
     return new Promise((resolve, reject) => {
-      console.log(`[SANDBOX] Initializing run: ${containerName} (Port: ${hostPort})`);
+      console.log(`[SANDBOX] Initializing run: ${containerName}`);
       
       const dockerProcess = spawn('docker', args);
       let stdout = '';
@@ -99,7 +107,7 @@ class DockerSandboxManager {
         if (code === 0) {
           const containerId = stdout.trim();
           console.log(`[SANDBOX] Container spawned. ID: ${containerId}`);
-          resolve({ containerName, containerId, mappedPort: hostPort });
+          resolve({ containerName, containerId});
         } else {
           console.error(`[SANDBOX] Process failed. Code: ${code}. Error: ${stderr}`);
           reject(new Error(`Sandbox startup error: ${stderr.trim()}`));

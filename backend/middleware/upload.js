@@ -34,11 +34,11 @@ const upload = multer({
   limits: uploadLimits,
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    // Allow zip files and extensionless binaries
-    if (ext === '.zip' || ext === '') {
+    // Allow only linux compatible binaries
+    if (ext === '') {
       cb(null, true);
     } else {
-      cb(new Error('Only ZIP archives or pre-compiled Linux binaries are supported.'), false);
+      cb(new Error('Only Linux compatible binary files are supported'), false);
     }
   }
 });

@@ -50,7 +50,7 @@ router.post('/submit', verifyToken, upload.single('submission_file'), async (req
       return res.status(400).json({ success: false, error: sanitizationError.message });
     }
 
-    const finalPath = path.join(__dirname, '..', 'uploads', safeName);
+    const finalPath =`/app/uploads/${safeName}`
 
     // 3. Move file from temp disk store to permanent uploads path
     fs.renameSync(tempPath, finalPath);

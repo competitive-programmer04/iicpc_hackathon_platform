@@ -49,7 +49,7 @@ export default function AuthPage() {
 
   // Backend round-trip verification call
   const verifyTokenWithBackend = async (idToken, userEmail, endpoint) => {
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+    const apiUrl = import.meta.env.VITE_API_URL;
     
     const response = await fetch(`${apiUrl}${endpoint}`, {
       method: "POST",

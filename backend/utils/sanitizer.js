@@ -7,7 +7,7 @@ import crypto from 'crypto';
  */
 class FileSanitizer {
   // We only allow compiled Linux ELF binaries or .zip files for our sandbox
-  static ALLOWED_EXTENSIONS = ['.zip', '']; // Empty string covers extensionless Linux binaries
+  static ALLOWED_EXTENSIONS = ['']; // Empty string covers extensionless Linux binaries
 
   /**
    * Sanitizes a file name.
@@ -20,7 +20,7 @@ class FileSanitizer {
 
     // Strict Extension check
     if (!this.ALLOWED_EXTENSIONS.includes(ext)) {
-      throw new Error(`Invalid file extension. Only compiled binaries or .zip files are allowed.`);
+      throw new Error(`Invalid file extension. Only compiled binaries are allowed.`);
     }
 
     // Clean base name: remove any path traversal characters
