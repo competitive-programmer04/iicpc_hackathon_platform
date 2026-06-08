@@ -10,9 +10,8 @@ services:
     networks:
       - project_network
     restart: always
-    
 
-  # 2. Installing timescale db image
+  # 2. Installing timescale db image, mapping volumes and passing environment variables
   timescaledb:
     container_name: timescaledb
     image: timescale/timescaledb:latest-pg18
@@ -23,7 +22,7 @@ services:
       - POSTGRES_DB=iicpc_hackathon
     volumes:
       - iicpc_hackathon_volume:/var/lib/postgresql
-      # Mapping init.sql to automatically create tables
+      # Mapping init.sql to our container to automatically create tables
       - ./db_scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - project_network
@@ -46,9 +45,10 @@ services:
   # 4. Building image for our backend container
   backend:
     container_name: backend
-    build: ./backend
+    build:
+      context: ./backend
     environment:
-     # passing values of environment variables
+      # passing values of environment variables
       - FIREBASE_SERVICE_ACCOUNT_PATH=${FIREBASE_SERVICE_ACCOUNT_PATH}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
       - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
@@ -58,56 +58,52 @@ services:
       - FIREBASE_MEASUREMENT_ID=${FIREBASE_MEASUREMENT_ID}
       - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FRONTEND_URL=${FRONTEND_URL}
       - PORT=${PORT}
       - REDIS_URL=${REDIS_URL}
       - DATABASE_URL=${DATABASE_URL}
       - GRPC_SERVER_URL=${GRPC_SERVER_URL}
-    ports:
-      - "3000:3000"
     depends_on:
       - redis
       - timescaledb
       - go_load_generator
     volumes:
-      # Allowing Nodejs server to create containers
+      # Allowing Nodejs server to create containers for contestant's trading engine
       - /var/run/docker.sock:/var/run/docker.sock
-      # creating volume for storing the trading engine file in my sytem so that docker engine can find it and run it
+      # creating volume for storing the trading engine file
       - trading_engine_volume:/app/uploads
     networks:
       - project_network
-
-  # 5. Building the image for frontend
-  frontend:
-    container_name: frontend
-    build:
-      context: ./frontend
-      args:
-        # Frontend STILL uses 'args' because Vite bakes these into the HTML!
-        - VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}
-        - VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}
-        - VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}
-        - VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET}
-        - VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}
-        - VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}
-        - VITE_FIREBASE_MEASUREMENT_ID=${VITE_FIREBASE_MEASUREMENT_ID}
-        - VITE_API_URL=${VITE_API_URL}
-        - VITE_LEADERBOARD_URL=${VITE_LEADERBOARD_URL}
-        - VITE_UPLOAD_URL=${VITE_UPLOAD_URL}
+  
+  # 5. Creating caddy container
+  caddy:
+    container_name: caddy
+    image: caddy:2-alpine
+    restart: always
     ports:
-      - "5173:5173"
-    depends_on:
-      - backend
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
     networks:
       - project_network
+    depends_on:
+      - backend
 
-# 6. declaring volume for our timescaledb container
+# 6. Declaring volumes
 volumes:
   iicpc_hackathon_volume:
-   name: iicpc_hackathon_volume
+    name: iicpc_hackathon_volume
   trading_engine_volume:
-   name: trading_engine_volume
+    name: trading_engine_volume
+  caddy_data:
+    name: caddy_data
+  caddy_config:
+    name: caddy_config
 
-# 7. creating custom bridge network for connecting our containers
+# 7. Creating custom bridge network for connecting our containers
 networks:
   project_network:
     name: project_network  

@@ -11,28 +11,6 @@ class DockerSandboxManager {
   // Sandbox Configuration Limits (As per requirements)
   static MEMORY_LIMIT = '1g';
   static CPU_LIMIT = '1';
-  //static BASE_IMAGE = 'iicpc-sandbox-base:latest';
-  //static CONTAINER_PORT = '8080'; // The standard internal port of contestant matching engines
-
-  /**
-   * Helper utility that queries the OS kernel for a guaranteed free TCP port.
-   * Prevents port conflicts when scaling concurrent tests.
-   * 
-   * @returns {Promise<number>} Ephemeral open port
-   */
-  // static async getFreePort() {
-  //   return new Promise((resolve, reject) => {
-  //     const server = net.createServer();
-  //     server.unref();
-  //     server.on('error', reject);
-  //     server.listen(0, () => {
-  //       const { port } = server.address();
-  //       server.close(() => {
-  //         resolve(port);
-  //       });
-  //     });
-  //   });
-  // }
 
   /**
    * Spins up sandbox with dynamic port mapping (hostPort -> containerPort).
@@ -58,16 +36,8 @@ class DockerSandboxManager {
       console.warn(`[SANDBOX WARNING] Failed to set +x permission on host file:`, chmodError.message);
     }
 
-    // 1. DYNAMICALLY ALLOCATE FREE PORT ON THE HOST
-    // let hostPort;
-    // try {
-    //   hostPort = await this.getFreePort();
-    //   console.log(`[SANDBOX] Ephemeral port allocated: ${hostPort} -> mapped to internal container port: ${this.CONTAINER_PORT}`);
-    // } catch (portError) {
-    //   throw new Error(`Port allocation failed: ${portError.message}`);
-    // }
 
-    // 2. Prepare Docker arguments with Port Forwarding parameter
+    // Prepare Docker arguments with Port Forwarding parameter
     const args = [
       'run',
       '-d',
@@ -75,10 +45,7 @@ class DockerSandboxManager {
       '--network',"project_network",
       '--memory', this.MEMORY_LIMIT,
       '--cpus', this.CPU_LIMIT,
-      // '-p', `${hostPort}:${this.CONTAINER_PORT}`, // Forwarding: Host -> Container
       '-v', `trading_engine_volume:/sandbox_env`,
-      // this.BASE_IMAGE,
-
       // security handling flags (low privileged mode)
       '--user','65534:65534',// runing the trading engine as a nobody regular user(low privileged user)
       '--cap-drop','ALL', // stripping awway all the kernel permissions

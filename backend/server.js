@@ -45,31 +45,6 @@ try{
   await redisClient.connect();
   console.log("connected with redisdb server running at port 6379");
   await connectingWithTimeScaleDB();
-//   await tsClient.connect();
-//   console.log("connected with timescaledb server running at port 5432");
-//   console.log("creating tables inside my iicpc_hackathon database");
-//   const creatingTable=`
-//   create table if not exists metrics_trading_engine(
-//     id serial,
-//     submission_id varchar(50) not null,
-//     recorded_at timestamptz not null,
-//     time_second int not null,
-//     tps int,
-//     p50_lat float,
-//     p99_lat float,
-//     accuracy float,
-//     primary key (id,recorded_at)
-// );
-
-// select create_hypertable('metrics_trading_engine','recorded_at', if_not_exists => TRUE);
-
-// create table if not exists submissions(
-//     id serial primary key,
-//     team_id varchar(30),
-//     submission_id varchar(50)
-// );`;
-// await tsClient.query(creatingTable);
-//console.log("successfully created tables");
   try {
   if (serviceAccountPath && existsSync(serviceAccountPath)) {
     const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf-8"));

@@ -18,7 +18,7 @@ export async function verifyToken(req, res, next) {
     return res.status(401).json({ error: "Missing or malformed Authorization header" });
   }
 
-  const token = authHeader.split("Bearer ")[1];
+  const token = authHeader.split(" ")[1];
 
   // Basic token format check — Firebase ID tokens are JWTs (3 dot-separated base64 segments)
   if (!token || !/^[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+$/.test(token)) {

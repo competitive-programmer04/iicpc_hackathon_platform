@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import "./UploadPage.css"; // UI components standard separation
+import { auth } from "../firebase";
 
 // FIX 1: Added 'onUploadSuccess' callback in destructured props
 export default function UploadPage({ userToken, onUploadSuccess }) {
@@ -48,6 +49,8 @@ export default function UploadPage({ userToken, onUploadSuccess }) {
       message: "Uploading and scanning binary...",
     });
 
+    const freshToken=await auth.currentUser.getIdToken();
+    userToken=freshToken;
     const formData = new FormData();
     formData.append("submission_file", file);
 
