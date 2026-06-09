@@ -1,5 +1,5 @@
 # providing domain name to our platform and routing traffic that comes on this domain to our server
-stresstester.ddns.net{
+stresstester.ddns.net {
     # sending all traffic to our node js server
     reverse_proxy backend:3000
 }
