@@ -5,8 +5,6 @@ services:
   redis:
     container_name: redis
     image: redis:alpine
-    ports:
-      - "6379:6379"
     networks:
       - project_network
     restart: always
@@ -15,8 +13,6 @@ services:
   timescaledb:
     container_name: timescaledb
     image: timescale/timescaledb:latest-pg18
-    ports:
-      - "5432:5432"
     environment:
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=iicpc_hackathon
@@ -32,8 +28,6 @@ services:
   go_load_generator:
     container_name: go_load_generator
     build: ./go_bot_generator
-    ports:
-      - "50051:50051"
     environment:
       - REDIS_ADDR=redis:6379
     depends_on:
