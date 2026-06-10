@@ -86,7 +86,7 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
   const fetchDatabaseReport = async () => {
     try {
       console.log(`[SYSTEM] Fetching database analytical report for: ${activeTest.submissionId}`);
-      const response = await fetch(`http://localhost:3000/api/v1/submissions/report/${activeTest.submissionId}`, {
+      const response = await fetch(`https://stresstester.ddns.net/api/v1/submissions/report/${activeTest.submissionId}`, {
         headers: {
           'Authorization': `Bearer ${userToken}`
         }
@@ -113,7 +113,7 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
       return;
     }
 
-    const streamUrl = `http://localhost:3000/api/v1/submissions/stream?teamId=${activeTest.teamId}&submissionId=${activeTest.submissionId}`;
+    const streamUrl = `https://stresstester.ddns.net/api/v1/submissions/stream?teamId=${activeTest.teamId}&submissionId=${activeTest.submissionId}`;
     const eventSource = new EventSource(streamUrl);
 
     eventSource.onopen = () => {
