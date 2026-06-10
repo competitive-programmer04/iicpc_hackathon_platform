@@ -1,8 +1,8 @@
 # Installing the lightweight nodejs debian bookworm image
 FROM node:22-bookworm-slim
 
-# Installing the docker-cli so our nodejs server can start the magic tunnel
-RUN apt-get update && apt-get install -y docker.io
+# Installing the latest version of docker-cli so our nodejs server can start the magic tunnel
+COPY --from=docker:latest /usr/local/bin/docker /usr/local/bin/docker
 
 # Declaring the present working directory
 WORKDIR /app
