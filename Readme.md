@@ -303,7 +303,7 @@ To break past single-node TCP limits, the system can seamlessly pivot to a Redis
 
 ## 10. Directory Structure
 ```
-IICPC-Hackathon/
+IICPC_Hackathon_Platform/
 |── frontend/
 |   ├── src/
 |   │   ├── components/    # Pages (Home, Auth, Upload, Dashboard, Leaderboard)
