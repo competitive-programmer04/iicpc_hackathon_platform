@@ -51,24 +51,29 @@ To ensure maximum performance and zero dependency-mismatch errors (e.g., missing
 (If you are writing your engine in another language, search the official documentation on how to output a statically linked Linux x86_64 executable).
 
 
-🐹 Go (Golang)
+### 🐹 Go (Golang)
+
 Disable CGO to enforce strict static linking:
-code
+```
 Bash
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o trading_engine main.go
+```
 
 
-🦀 Rust
+### 🦀 Rust
+
 Compile against the musl target to guarantee it runs flawlessly on any Linux sandbox:
-code
+```
 Bash
 rustup target add x86_64-unknown-linux-musl
 cargo build --target x86_64-unknown-linux-musl --release
+```
 
 
-⚙️ C++ (Automated via GitHub Actions)
+### ⚙️ C++ (Automated via GitHub Actions)
+
 If you are compiling C++ on Windows or Mac, the easiest way to generate a pristine Ubuntu Linux binary is to use GitHub Actions. Create a .github/workflows/build.yml file in your repository:
-code
+```
 Yaml
 name: Compile C++ Trading Engine
 on: [push]
@@ -88,6 +93,7 @@ jobs:
       with:
         name: linux-trading-engine-binary
         path: engine_binary
+```
 
 GitHub will compile your code automatically. Download the resulting artifact and upload it to our platform!
 
@@ -98,7 +104,7 @@ GitHub will compile your code automatically. Download the resulting artifact and
 Our Load Generator communicates exclusively over WebSockets on ws://0.0.0.0:8080/trade.
 Expected Input (From Platform to Your Engine)
 Your engine will be bombarded with JSON payloads matching this schema:
-code
+```
 JSON
 {
   "order_id": "bot-1-1715965412345", 
@@ -110,52 +116,59 @@ JSON
   "order_type": "limit",
   "timestamp": 1715965412345
 }
+```
 
 Required Output (From Your Engine to Platform)
 Your engine must parse the incoming JSON and return exactly one of the 6 Event Types below. (All events must include the exact processed_at Unix millisecond timestamp).
 
 1. Acknowledged: An order is validated and added to the resting orderbook.
-code
+```
 JSON
 {"event": "Acknowledged", "order_id": "...", "bot_id": "...", "processed_at": 123456789}
+```
 
 2. Filled: A Maker and Taker order fully match.
-code
+```
 JSON
 {"event": "Filled", "buy_order_id": "...", "sell_order_id": "...", "match_price": 150.00, "filled_quantity": 10, "processed_at": 123456789}
+```
 
 3. Partially Filled: An order is only partially executed.
-code
+```
 JSON
 {"event": "Partially Filled", "buy_order_id": "...", "sell_order_id": "...", "match_price": 150.00, "filled_quantity": 4, "buy_remaining": 6, "sell_remaining": 0, "processed_at": 123456789}
+```
 
 4. Cancelled: A user successfully requested an order removal.
-code
+```
 JSON
 {"event": "Cancelled", "order_id": "...", "bot_id": "...", "processed_at": 123456789}
+```
 
 5. Rejected: A bot attempted to Wash Trade (trade with itself).
-code
+```
 JSON
 {"event": "Rejected", "incoming_order_id": "...", "resting_order_id": "...", "processed_at": 123456789}
+```
 
 6. Invalid Request: Malformed requests (e.g., negative prices/quantities).
-code
+```
 JSON
 {"event": "Invalid Request", "order_id": "...", "bot_id": "...", "processed_at": 123456789}
+```
 
 
 ## 4. Component Deep Dive
 
 
-Frontend SaaS Portal
+### Frontend SaaS Portal
 
 Engine & Routing: Built using React and Vite. It implements standard client-side routing to ensure backward/forward history traversal and deep-linking.
 
 Zero-Dependency SVG Charting: Bypasses heavy, compilation-prone third-party visualization libraries by utilizing raw inline SVG math and scaling coordinates to render incoming time-series streams natively.
 
 
-Backend Express Controller
+### Backend Express Controller
 
 FIFO Job Scheduler: Enqueues incoming compilation and benchmarking tasks onto a centralized Redis List. This guarantees single-tenant evaluation patterns across horizontally scaled instances, preventing overlapping performance distortion.
 
@@ -169,7 +182,7 @@ Hardware Bounds: Caps resource allocations to exactly 1 CPU Core and restricts m
 Docker Internal DNS: Circumvents Host-OS port collision limits entirely. The Go Load Generator bypasses exposed host ports and routes traffic directly into the internal container network (ws://container_name:8080).
 
 
-Load Generator (Go Bot Core)
+### Load Generator (Go Bot Core)
 
 Concurrency Engine: Written in Go to maximize low-level resource efficiency. Uses heavily buffered channels and context.WithCancel watchdogs to safely manage 10,000+ lightweight Goroutines, preventing zombie-thread memory leaks.
 
@@ -185,7 +198,7 @@ O(1) Lock-Free State: Tracks in-flight orders without CPU lock contention by lev
 
 To eliminate the "Illusion of Time" introduced by TCP network jitter, the load generator bifurcates workloads into two distinct operational streams:
 
-Stream A: Chaotic Bots (Throughput & Negative Fuzzing)
+### Stream A: Chaotic Bots (Throughput & Negative Fuzzing)
 
 Simulates massive market volatility by scaling workloads exponentially.
 
@@ -193,7 +206,7 @@ Trap Injection: 5% of all outbound transactions are corrupted on-the-fly (e.g., 
 
 Maker vs. Taker Latency Isolation: System latency metrics are computed exclusively from Taker response legs to eliminate artificial latency inflation caused by resting Maker liquidity.
 
-Stream B: Sniper Bot (Algorithmic Logic Auditing)
+### Stream B: Sniper Bot (Algorithmic Logic Auditing)
 
 Operates sequentially on an isolated asset identifier (IICPC_PRIO) to mathematically verify matching logic accuracy:
 The Middleman Sorting Trap: The bot purposefully structures a three-tiered placement sequence: Sell @ $105, Sell @ $100 (Optimal Price), and Sell @ $110. By positioning the optimal clearing price in the middle, the audit engine forces the contestant's system to invoke sorting algorithms, instantly exposing lazy FIFO/LIFO stack shortcuts.
@@ -205,7 +218,7 @@ The Middleman Sorting Trap: The bot purposefully structures a three-tiered place
 
 Historical executions and time-series telemetry metrics are persisted using TimescaleDB / PostgreSQL.
 Schema Definitions
-code
+```
 SQL
 CREATE TABLE IF NOT EXISTS submissions (
     id SERIAL PRIMARY KEY,
@@ -227,9 +240,9 @@ CREATE TABLE IF NOT EXISTS metrics_trading_engine (
 
 -- Initialize TimescaleDB Hypertable
 SELECT create_hypertable('metrics_trading_engine', 'recorded_at', if_not_exists => TRUE);
+```
 
-
-Composite Scoring Formula
+### Composite Scoring Formula
 The platform grades trading engines using a dynamic SQL calculation that rewards throughput while aggressively penalizing high tail-latency values. Scores are dynamically constrained using LEAST and GREATEST wrappers.
 
 $$\text{Composite Score} = \left(\text{Peak TPS} \times \frac{\text{Average Accuracy}}{100.0}\right) - \left(\text{p99 Latency} \times 10\right)$$
@@ -239,7 +252,7 @@ $$\text{Composite Score} = \left(\text{Peak TPS} \times \frac{\text{Average Accu
 
 
 High-performance binary serialization is maintained between the Node.js Orchestrator and the Go Load Generator over HTTP/2 using standard protobuf definitions:
-code
+```
 Protobuf
 syntax = "proto3";
 
@@ -267,6 +280,7 @@ message StoppingRequest {
 message StoppingResponse { 
     string Message = 1; 
 }
+```
 
 
 
@@ -288,7 +302,7 @@ To break past single-node TCP limits, the system can seamlessly pivot to a Redis
 
 
 ## 10. Directory Structure
-code
+```
 Text
 IICPC-Hackathon/
 ├── backend/
@@ -307,3 +321,4 @@ IICPC-Hackathon/
 ├── Caddyfile              # Reverse proxy routing & Auto-SSL
 ├── docker-compose.yml     # IaC Orchestration
 └── README.md
+```
