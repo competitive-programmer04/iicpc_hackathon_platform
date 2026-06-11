@@ -15,7 +15,7 @@ function CustomTelemetryChart({ data }) {
   }
 
   const width = 800;
-  const height = 250;
+  const height = 500;
   const padding = 40;
   const tpsValues = data.map((d) => d.tps);
   const maxTps = Math.max(...tpsValues, 10000);
@@ -161,7 +161,7 @@ export default function DashboardPage({ activeTest, onBackToUpload, onViewLeader
     eventSource.onerror = (err) => {
       console.error("[SSE ERROR] Connection failed. Fallback triggered.", err);
       setConnectionStatus('ERROR');
-      eventSource.close(); [2]
+      eventSource.close(); 
     };
 
     return () => {

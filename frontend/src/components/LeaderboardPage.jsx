@@ -38,7 +38,7 @@ export default function LeaderboardPage({ onBackToUpload }) {
     <div className="leaderboard-container">
       <div className="leaderboard-header-section">
         <h1 className="leaderboard-title">🏆 Global Standings</h1>
-        <p className="leaderboard-subtitle">Real-time rolling 24-hour evaluation rankings of contestant matching engines [1].</p>
+        <p className="leaderboard-subtitle">Real-time rolling 1-hour evaluation rankings of contestant matching engines.</p>
       </div>
 
       {/* Dynamic Search Filter */}
@@ -81,7 +81,7 @@ export default function LeaderboardPage({ onBackToUpload }) {
             <tbody>
               {filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="no-teams-found">No submissions matches found in the last 24 hours.</td>
+                  <td colSpan="7" className="no-teams-found">No submissions matches found in the last 1 hour.</td>
                 </tr>
               ) : (
                 filteredData.map((row, index) => (
