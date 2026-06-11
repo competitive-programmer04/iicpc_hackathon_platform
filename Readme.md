@@ -8,19 +8,19 @@ The platform utilizes a decoupled, event-driven agent-controller architecture to
 
 ## Table of Contents
 1. [System Architecture](#1-system-architecture)
-2. [Component Deep Dive](#2-component-deep-dive)
-   - [Frontend SaaS Portal](#frontend-saas-portal)
-   - [Backend Express Controller](#backend-express-controller)
-   - [Secure Sandbox Containerizer](#secure-sandbox-containerizer)
-   - [HFT Mock Engine (C++)](#hft-mock-engine-c)
-   - [Load Generator (Go Bot Core)](#load-generator-go-bot-core)
-3. [Database Schemas & Analytical Scoring](#3-database-schemas--analytical-scoring)
-4. [gRPC Service Contract](#4-grpc-service-contract)
-5. [Local Development & Mock Testing](#5-local-development--mock-testing)
-6. [Production Deployment (IaC)](#6-production-deployment-iac)
-7. [Directory Structure](#7-directory-structure)
+2. [Contestant Guide: Building Statically Linked Binaries](#2-contestant-guide-building-statically-linked-binaries)
+3. [Contestant API & Communication Contract](#3-contestant-api--communication-contract)
+4. [Component Deep Dive](#4-component-deep-dive)
+5. [The Dual-Stream Testing Methodology](#5-the-dual-stream-testing-methodology)
+6. [Database Schemas & Analytical Scoring](#6-database-schemas--analytical-scoring)
+7. [gRPC Service Contract](#7-grpc-service-contract)
+8. [Infrastructure as Code (IaC)](#8-infrastructure-as-code-iac)
+9. [Future Scalability: Redis Pub/Sub](#9-future-scalability-redis-pubsub)
+10. [Directory Structure](#10-directory-structure)
 
 ---
+
+
 
 ## 1. System Architecture
 
@@ -42,200 +42,268 @@ The platform isolates untrusted user binaries using a strictly decoupled executi
 |  (Isolated Container) |             (Extreme Volatility)            |                               |
 |                       |                                             |                               |
 +-----------------------+                                             +-------------------------------+
-
 ```
 
----
 
-## 2. Component Deep Dive
+## 2. Contestant Guide: Building Statically Linked Binaries
 
-### Frontend SaaS Portal
+To ensure maximum performance and zero dependency-mismatch errors (e.g., missing GLIBC), all submitted trading engines must be statically linked Linux executables targeting x86_64 (amd64). Your engine must bind its WebSocket server to 0.0.0.0:8080.
+(If you are writing your engine in another language, search the official documentation on how to output a statically linked Linux x86_64 executable).
 
-* **Engine & Routing:** Built using React, Vite, and Tailwind CSS. It implements standard client-side routing via `HashRouter` (`react-router-dom`) to ensure backward/forward history traversal and deep-linking without encountering 404 reload errors on static hosting servers.
-* **Zero-Dependency SVG Charting:** Bypasses heavy, compilation-prone third-party visualization libraries by utilizing raw inline SVG math and scaling coordinates. Incoming time-series streams are converted directly into responsive mathematical line graphs on the fly.
-* **Native PDF Reports:** Compiles database aggregate metrics and multi-run execution summaries into downloadable, formatted PDF report cards natively using `jspdf` and `jspdf-autotable`.
 
-### Backend Express Controller
+🐹 Go (Golang)
+Disable CGO to enforce strict static linking:
+code
+Bash
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o trading_engine main.go
 
-* **Core Architecture:** Node.js backend leveraging structural ES Modules (ESM). Protects server runtime using a strict `FileSanitizer` utility that cleans uploaded binary names and strips malicious directory traversal sequences (`../`).
-* **FIFO Job Scheduler:** Enqueues incoming compilation and benchmarking tasks onto a centralized Redis List (`LPUSH` and `RPOP`). This guarantees single-tenant evaluation patterns across horizontally scaled instances, preventing overlapping performance distortion.
-* **Real-time Streaming:** Opens unidirectional HTTP channels (`text/event-stream`) via Server-Sent Events (SSE) to instantly pipe system logs, compilation output, and real-time execution metrics directly from the backend event bus to the React dashboard.
 
-### Secure Sandbox Containerizer
+🦀 Rust
+Compile against the musl target to guarantee it runs flawlessly on any Linux sandbox:
+code
+Bash
+rustup target add x86_64-unknown-linux-musl
+cargo build --target x86_64-unknown-linux-musl --release
 
-* **Isolation Layers:** Wraps untrusted user binaries inside a stripped-down `iicpc-sandbox-base` container running as an unprivileged system user `sandbox_user` who has zero administrative rights.
-* **Hardware Bounds:** Caps CPU core allocations to exactly 1 CPU and restricts memory usage to a hard roof of 512MB RAM via Docker engine container resource flags.
-* **Ephemeral Sockets:** Queries the Linux host network layer dynamically for an unallocated port to hook up the binary wrapper loop on the fly, preventing port-collision crashes on concurrent runs.
-* **Garbage Collection:** Automatically invokes filesystem unlinks to delete the uploaded binary from the host's `uploads/` directory 3 seconds after container teardown to protect storage boundaries cleanly.
 
-### HFT Mock Engine (C++)
+⚙️ C++ (Automated via GitHub Actions)
+If you are compiling C++ on Windows or Mac, the easiest way to generate a pristine Ubuntu Linux binary is to use GitHub Actions. Create a .github/workflows/build.yml file in your repository:
+code
+Yaml
+name: Compile C++ Trading Engine
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Dependencies
+      # Replace '<your-dependencies-here>' with any specific C++ libraries your engine needs
+      run: sudo apt-get update && sudo apt-get install -y g++ <your-dependencies-here>
+    - name: Compile Static Binary
+      # Update 'your_source_file.cpp' and 'engine_binary' to match your project
+      run: g++ -std=c++17 -static -O3 your_source_file.cpp -lpthread -o engine_binary
+    - name: Upload Binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-trading-engine-binary
+        path: engine_binary
 
-* **Core Stack:** Native C++ utilizing `Boost.Asio` and `WebSocket++`.
-* **Execution Logic:** Processes network packets via a dedicated non-blocking asynchronous event loop (`ws_server.run()`). It accepts high-speed trade packets and matches orders dynamically based on price-time priority inside an in-memory limit order book.
+GitHub will compile your code automatically. Download the resulting artifact and upload it to our platform!
 
-### Load Generator (Go Bot Core)
 
-* **Concurrency Engine:** Written in Go (Golang) to maximize low-level resource efficiency. It can instantiate or destroy over 10,000+ lightweight Goroutines in under a millisecond to generate up to 50,000+ Requests Per Second (TPS).
-* **Fan-In WebSocket Multiplexing:** To prevent **Ephemeral Port Exhaustion** (the 65,535 TCP socket limit), it multiplexes thousands of virtual bot entities over a single, persistent WebSocket connection. Virtual actors push JSON payloads into a highly buffered concurrent Go channel (`orderChannel`) where a single writer flushes them into the network pipeline.
-* **"Write Coalescing" Telemetry:** Avoids choking the engine on database I/O by utilizing a non-blocking batching strategy. Telemetry records are pushed into a channel where a background worker collects and flushes them to Redis via a single `RPUSH` command every 100ms or 1,000 items, reducing network traffic by 99.9%.
-* **O(1) Lock-Free State:** Tracks in-flight orders without CPU lock contention by leveraging Go’s native `sync.Map`, utilizing atomic hardware-level memory operations instead of coarse-grained `RWMutex` locks.
 
----
+## 3. Contestant API & Communication Contract
 
-## 3. The Dual-Stream Testing Methodology
+Our Load Generator communicates exclusively over WebSockets on ws://0.0.0.0:8080/trade.
+Expected Input (From Platform to Your Engine)
+Your engine will be bombarded with JSON payloads matching this schema:
+code
+JSON
+{
+  "order_id": "bot-1-1715965412345", 
+  "bot_id": "bot-1",
+  "symbol": "AAPL",
+  "price": 150.25,
+  "quantity": 10,
+  "action": "buy",
+  "order_type": "limit",
+  "timestamp": 1715965412345
+}
 
-To eliminate the "Illusion of Time" introduced by TCP network jitter and accurately evaluate contestant business logic, the load generator bifurcates workloads into two distinct operational streams:
+Required Output (From Your Engine to Platform)
+Your engine must parse the incoming JSON and return exactly one of the 6 Event Types below. (All events must include the exact processed_at Unix millisecond timestamp).
 
-### Stream A: Chaotic Bots (Throughput & Negative Fuzzing)
+1. Acknowledged: An order is validated and added to the resting orderbook.
+code
+JSON
+{"event": "Acknowledged", "order_id": "...", "bot_id": "...", "processed_at": 123456789}
 
-Simulates massive market volatility by scaling workloads exponentially. These bots actively evaluate engine durability via data-corruption injection:
+2. Filled: A Maker and Taker order fully match.
+code
+JSON
+{"event": "Filled", "buy_order_id": "...", "sell_order_id": "...", "match_price": 150.00, "filled_quantity": 10, "processed_at": 123456789}
 
-* **Trap Injection:** 5% of all outbound transactions are corrupted on-the-fly (e.g., negative boundaries, zero volumes, or illegal instruction enums). If an engine accepts these malformed packets rather than raising an immediate validation rejection, its core accuracy index is penalized.
-* **Maker vs. Taker Isolation:** The platform separates order-book resting time (Maker) from immediate trade execution time (Taker). System latency metrics are computed exclusively from Taker response legs to eliminate artificial latency inflation caused by resting liquidity.
+3. Partially Filled: An order is only partially executed.
+code
+JSON
+{"event": "Partially Filled", "buy_order_id": "...", "sell_order_id": "...", "match_price": 150.00, "filled_quantity": 4, "buy_remaining": 6, "sell_remaining": 0, "processed_at": 123456789}
 
-### Stream B: Sniper Bot (Algorithmic Logic Auditing)
+4. Cancelled: A user successfully requested an order removal.
+code
+JSON
+{"event": "Cancelled", "order_id": "...", "bot_id": "...", "processed_at": 123456789}
 
-Operates sequentially on an isolated asset identifier (`IICPC_PRIO`) to eliminate network jitter and mathematically verify matching logic accuracy:
+5. Rejected: A bot attempted to Wash Trade (trade with itself).
+code
+JSON
+{"event": "Rejected", "incoming_order_id": "...", "resting_order_id": "...", "processed_at": 123456789}
 
-* **Synchronous Handshakes:** The bot sends an order and waits for an explicit network acknowledgement event before dispatching successive operations, ensuring a traceable execution sequence.
-* **The Middleman Sorting Trap:** The bot purposefully structures a three-tiered placement sequence: `Sell @ $105`, `Sell @ $100` (Optimal Price), and `Sell @ $110`. By positioning the optimal clearing price between sub-optimal parameters, the audit engine forces the contestant's system to invoke sorting algorithms, instantly exposing lazy FIFO/LIFO stack shortcuts.
+6. Invalid Request: Malformed requests (e.g., negative prices/quantities).
+code
+JSON
+{"event": "Invalid Request", "order_id": "...", "bot_id": "...", "processed_at": 123456789}
 
----
 
-## 4. Database Schemas & Analytical Scoring
+## 4. Component Deep Dive
 
-Historical executions and time-series telemetry metrics are persisted using a relational schema optimized for TimescaleDB / PostgreSQL.
 
-### Schema Definitions
+Frontend SaaS Portal
 
-```sql
-CREATE TABLE submissions (
-    id serial primary key,
-    team_id varchar(30),
-    submission_id varchar(50)
+Engine & Routing: Built using React and Vite. It implements standard client-side routing to ensure backward/forward history traversal and deep-linking.
+
+Zero-Dependency SVG Charting: Bypasses heavy, compilation-prone third-party visualization libraries by utilizing raw inline SVG math and scaling coordinates to render incoming time-series streams natively.
+
+
+Backend Express Controller
+
+FIFO Job Scheduler: Enqueues incoming compilation and benchmarking tasks onto a centralized Redis List. This guarantees single-tenant evaluation patterns across horizontally scaled instances, preventing overlapping performance distortion.
+
+Real-time Streaming: Opens unidirectional HTTP channels (text/event-stream) via Server-Sent Events (SSE) to instantly pipe execution metrics directly from the backend event bus to the React dashboard.
+
+Secure Sandbox Containerizer
+Isolation Layers: Wraps untrusted user binaries inside a stripped-down ubuntu:24.04 container running as an unprivileged system user (nobody / UID 65534), protected by --security-opt no-new-privileges.
+
+Hardware Bounds: Caps resource allocations to exactly 1 CPU Core and restricts memory usage to a hard roof of 1GB RAM via Docker Engine resource flags.
+
+Docker Internal DNS: Circumvents Host-OS port collision limits entirely. The Go Load Generator bypasses exposed host ports and routes traffic directly into the internal container network (ws://container_name:8080).
+
+
+Load Generator (Go Bot Core)
+
+Concurrency Engine: Written in Go to maximize low-level resource efficiency. Uses heavily buffered channels and context.WithCancel watchdogs to safely manage 10,000+ lightweight Goroutines, preventing zombie-thread memory leaks.
+
+Fan-In WebSocket Multiplexing: To bypass Ephemeral Port Exhaustion, it multiplexes thousands of virtual bot entities over a single, persistent WebSocket connection.
+
+Write Coalescing Telemetry: A background worker collects latency results and flushes them to Redis via a single RPUSH command every 100ms or 1,000 items, reducing database network traffic by 99.9%.
+
+O(1) Lock-Free State: Tracks in-flight orders without CPU lock contention by leveraging Go’s native sync.Map, utilizing atomic hardware-level memory operations instead of coarse-grained RWMutex locks.
+
+
+## 5. The Dual-Stream Testing Methodology
+
+
+To eliminate the "Illusion of Time" introduced by TCP network jitter, the load generator bifurcates workloads into two distinct operational streams:
+
+Stream A: Chaotic Bots (Throughput & Negative Fuzzing)
+
+Simulates massive market volatility by scaling workloads exponentially.
+
+Trap Injection: 5% of all outbound transactions are corrupted on-the-fly (e.g., negative boundaries or illegal enums). If an engine accepts these rather than raising an immediate validation rejection, its accuracy score drops.
+
+Maker vs. Taker Latency Isolation: System latency metrics are computed exclusively from Taker response legs to eliminate artificial latency inflation caused by resting Maker liquidity.
+
+Stream B: Sniper Bot (Algorithmic Logic Auditing)
+
+Operates sequentially on an isolated asset identifier (IICPC_PRIO) to mathematically verify matching logic accuracy:
+The Middleman Sorting Trap: The bot purposefully structures a three-tiered placement sequence: Sell @ $105, Sell @ $100 (Optimal Price), and Sell @ $110. By positioning the optimal clearing price in the middle, the audit engine forces the contestant's system to invoke sorting algorithms, instantly exposing lazy FIFO/LIFO stack shortcuts.
+
+
+
+## 6. Database Schemas & Analytical Scoring
+
+
+Historical executions and time-series telemetry metrics are persisted using TimescaleDB / PostgreSQL.
+Schema Definitions
+code
+SQL
+CREATE TABLE IF NOT EXISTS submissions (
+    id SERIAL PRIMARY KEY,
+    team_id VARCHAR(30) NOT NULL,
+    submission_id VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE metrics_trading_engine (
-     id serial,
-    submission_id varchar(50) not null,
-    recorded_at timestamptz not null,
-    time_second int not null,
-    tps int,
-    p50_lat float,
-    p99_lat float,
-    accuracy float,
-    primary key (id,recorded_at)
+CREATE TABLE IF NOT EXISTS metrics_trading_engine (
+    id SERIAL,
+    submission_id VARCHAR(50) NOT NULL,
+    recorded_at TIMESTAMPTZ NOT NULL,
+    time_second INT NOT NULL,
+    tps INT,
+    p50_lat FLOAT,
+    p99_lat FLOAT,
+    accuracy FLOAT,
+    PRIMARY KEY (id, recorded_at)
 );
 
-```
+-- Initialize TimescaleDB Hypertable
+SELECT create_hypertable('metrics_trading_engine', 'recorded_at', if_not_exists => TRUE);
 
-### Composite Scoring Formula
 
-The platform grades trading engines using a multi-variable calculation that rewards throughput and processing precision while aggressively penalizing high tail-latency values:
+Composite Scoring Formula
+The platform grades trading engines using a dynamic SQL calculation that rewards throughput while aggressively penalizing high tail-latency values. Scores are dynamically constrained using LEAST and GREATEST wrappers.
 
 $$\text{Composite Score} = \left(\text{Peak TPS} \times \frac{\text{Average Accuracy}}{100.0}\right) - \left(\text{p99 Latency} \times 10\right)$$
+​
 
----
+## 7. gRPC Service Contract
 
-## 5. gRPC Service Contract
 
-High-performance binary serialization is maintained across distributed load generation nodes over HTTP/2 using the following standard structural protocol definitions:
-
-```protobuf
+High-performance binary serialization is maintained between the Node.js Orchestrator and the Go Load Generator over HTTP/2 using standard protobuf definitions:
+code
+Protobuf
 syntax = "proto3";
 
-package main;
+package loadgenerator;
 
-option go_package = "/proto/gen;genpb";
+option go_package = "./proto/gen";
 
-service LoadGeneration {
+service LoadGenerationServer {
     rpc StartLoad(StartingRequest) returns (StartingResponse);
     rpc StopLoad(StoppingRequest) returns (StoppingResponse);
 }
 
-message StartingRequest {
-    string URL = 1;
+message StartingRequest { 
+    string URL = 1; 
 }
 
-message StartingResponse {
-    string Message = 1;
+message StartingResponse { 
+    string Message = 1; 
 }
 
-message StoppingRequest {
-    string Message = 1;
+message StoppingRequest { 
+    string Message=1; 
 }
 
-message StoppingResponse {
-    string Message = 1;
+message StoppingResponse { 
+    string Message = 1; 
 }
 
-```
 
----
 
-## 6. Local Development & Mock Testing
+## 8. Infrastructure as Code (IaC)
 
-A standalone decoupled local mock server is included to test the full React dashboard workflow (Authentication $\rightarrow$ Upload $\rightarrow$ Live SVG Streaming $\rightarrow$ Result Compilation $\rightarrow$ PDF Download) without requiring system installations of PostgreSQL, Redis, or Docker infrastructure.
 
-### Execution Steps
+To fulfill automated deployment requirements, the entire multi-tier environment (Node Controller Backend, Go Load Generator, Redis Cache, TimescaleDB Database, and Caddy Reverse Proxy) is containerized via Docker Compose for instant, one-click provisioning on cloud compute instances.
 
-1. **Spin up Backend Mock Routing:**
+By mounting /var/run/docker.sock, the orchestrator natively executes Docker-out-of-Docker (DooD) sandbox provisioning without requiring nested virtualization overhead. Caddy auto-provisions Let's Encrypt SSL certificates to ensure End-to-End Encryption between the browser and the backend cluster.
 
-```bash
-   cd backend
-   npm install
-   node mock_server.js
 
-```
 
-2. **Launch Frontend Application Instance:**
+## 9. Future Scalability: Redis Pub/Sub
 
-```bash
-   cd ../frontend
-   npm install
-   npm run dev
 
-```
+While the current MVP operates the Go Load Generator as a single gRPC microservice capable of 50,000+ TPS (easily saturating the 1-core limit of contestant sandboxes), the architecture is designed for horizontal enterprise scalability.
+To break past single-node TCP limits, the system can seamlessly pivot to a Redis Pub/Sub model. The Node.js orchestrator would broadcast the StartLoad metadata payload to a Redis channel. This allows an orchestration cluster (like Kubernetes/EKS) to spin up N Go Load Generator replicas across multiple availability zones, each subscribing to the channel and concurrently spawning bots for a globally distributed DDoS load-generation event.
 
-3. **Access Local Instance:** Open your browser and navigate to the local loopback address provided by Vite (typically `http://localhost:5173`).
 
----
 
-## 7. Production Deployment (IaC)
-
-The system architecture is completely containerized for cloud-agnostic deployment. Boot up the entire multi-tier environment (React Web Frontend, Node Controller Backend, go load generator, Redis Cache Engine, and TimescaleDB Database cluster) with a single infrastructure-as-code command block:
-
-```bash
-docker compose up --build -d
-
-```
-
-> **Note:** Ensure your Docker engine or daemon is active and running before executing the setup command.
-
----
-
-## 8. Directory Structure
-
-```text
+## 10. Directory Structure
+code
+Text
 IICPC-Hackathon/
 ├── backend/
 │   ├── auth/              # Auth routes & JWT verification middleware
-│   ├── middleware/        # Multer upload configuration & size limits
-│   ├── proto/             # gRPC main.proto contracts
 │   ├── routes/            # Submissions upload, stream, & SQL metrics routers
-│   ├── sandbox/           # Custom Dockerfile for iicpc-sandbox-base
 │   ├── services/          # Redis queue & Docker sandbox execution managers
-│   ├── uploads/           # Persistent local file store for binaries
-│   ├── utils/             # Singleton Event Bus & File name sanitizers
-│   ├── mock_server.js     # Standalone lightweight testing server
 │   ├── server.js          # Express app entry-point
-│   └── package.json
-└── frontend/
-    ├── src/
-    │   ├── components/    # Pages (Home, Auth, Upload, Dashboard, Leaderboard)
-    │   ├── App.jsx        # Root Router context mapping
-    │   └── main.jsx       # App entry-point
-    ├── vite.config.js     # Vite bundler configurations
-    └── package.json
-
-```
+│   └── Dockerfile
+├── go_bot_generator/
+│   ├── proto/gen/         # Compiled gRPC stubs (main.pb.go)
+│   ├── main.go            # High-concurrency bot fleet & Telemetry logic
+│   └── Dockerfile
+├── db_scripts/
+│   └── init.sql           # TimescaleDB Table & Hypertable generation
+├── .gitignore
+├── Caddyfile              # Reverse proxy routing & Auto-SSL
+├── docker-compose.yml     # IaC Orchestration
+└── README.md
