@@ -18,7 +18,7 @@ function CustomTelemetryChart({ data }) {
   const height = 250;
   const padding = 40;
   const tpsValues = data.map((d) => d.tps);
-  const maxTps = Math.max(...tpsValues, 2000);
+  const maxTps = Math.max(...tpsValues, 10000);
   const minTps = Math.min(...tpsValues, 0);
   const tpsRange = (maxTps - minTps)/2 || 1;
 
