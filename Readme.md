@@ -303,8 +303,14 @@ To break past single-node TCP limits, the system can seamlessly pivot to a Redis
 
 ## 10. Directory Structure
 ```
-Text
 IICPC-Hackathon/
+|── frontend/
+|   ├── src/
+|   │   ├── components/    # Pages (Home, Auth, Upload, Dashboard, Leaderboard)
+|   │   ├── App.jsx        # Root Router context mapping
+|   │   └── main.jsx       # App entry-point
+|   ├── vite.config.js     # Vite bundler configurations
+|   └── package.json
 ├── backend/
 │   ├── auth/              # Auth routes & JWT verification middleware
 │   ├── routes/            # Submissions upload, stream, & SQL metrics routers
