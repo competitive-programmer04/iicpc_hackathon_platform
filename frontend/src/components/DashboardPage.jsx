@@ -59,8 +59,8 @@ function CustomTelemetryChart({ data }) {
       ))}
 
       <text x={padding - 10} y={padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(maxTps / 1000)}k</text>
-      <text x={padding - 10} y={height / 10 + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor((maxTps + minTps) / 2000)}k</text>
-      <text x={padding - 10} y={height - 5*padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(minTps)}</text>
+      <text x={padding - 10} y={height / 2 + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor((maxTps + minTps) / 2000)}k</text>
+      <text x={padding - 10} y={height - padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(minTps)}</text>
 
       <text x={padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Start</text>
       <text x={width - padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Active</text>
