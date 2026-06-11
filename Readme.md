@@ -48,7 +48,6 @@ The platform isolates untrusted user binaries using a strictly decoupled executi
 ## 2. Contestant Guide: Building Statically Linked Binaries
 
 To ensure maximum performance and zero dependency-mismatch errors (e.g., missing GLIBC), all submitted trading engines must be statically linked Linux executables targeting x86_64 (amd64). Your engine must bind its WebSocket server to 0.0.0.0:8080.
-(If you are writing your engine in another language, search the official documentation on how to output a statically linked Linux x86_64 executable).
 
 
 ### 🐹 Go (Golang)
@@ -96,6 +95,11 @@ jobs:
 ```
 
 GitHub will compile your code automatically. Download the resulting artifact and upload it to our platform!
+
+
+### 🌐 Other Languages
+
+If you are writing your engine in another compiled language (Nim, Zig, Crystal, etc.), please consult your language's official documentation on how to output a "statically linked Linux x86_64 executable."
 
 
 
