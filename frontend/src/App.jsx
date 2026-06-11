@@ -153,7 +153,7 @@ useEffect(() => {
                   </button>
                   <button
                     onClick={() =>
-                      window.open("https://github.com/competitive-programmer04/iicpc_hackathon_platform.git")
+                      window.open("https://github.com/competitive-programmer04/iicpc_hackathon_platform/blob/main/Readme.md")
                     }
                     className="cta-secondary"
                   >
