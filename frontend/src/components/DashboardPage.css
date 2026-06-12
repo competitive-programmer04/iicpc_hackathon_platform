@@ -408,3 +408,51 @@
     padding: 14px;
   }
 }
+
+/* ==================== DYNAMIC HOVER TOOLTIP STYLES ==================== */
+
+.svg-chart-relative-container {
+  position: relative;
+  width: 100%;
+}
+
+/* Tooltip card container [1] */
+.chart-tooltip {
+  background-color: rgba(18, 18, 20, 0.95);
+  border: 1px solid #4f46e5; /* Neon primary border */
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: 'Inter', -apple-system, sans-serif;
+  pointer-events: none; /* CRUCIAL: Stops the tooltip from flickering when mouse is active! */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+  transition: opacity 0.15s ease-out;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+.tooltip-time {
+  font-size: 10px;
+  color: #888;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tooltip-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #60a5fa; /* Sky blue matching your Current TPS metrics */
+}
+
+/* Dot group interactive hover scaling animations */
+.chart-dot-group circle {
+  transition: r 0.15s ease, fill 0.15s ease;
+  cursor: pointer;
+}
+
+/* Grow the dot and glow sky-blue when user hovers [1] */
+.chart-dot-group:hover circle {
+  r: 6.5px; 
+  fill: #60a5fa; 
+  stroke: #ffffff;
+}

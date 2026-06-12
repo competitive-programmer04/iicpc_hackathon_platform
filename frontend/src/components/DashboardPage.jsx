@@ -3,8 +3,12 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable'; // FIX 1: Explicit import for fail-safe Vite bundling
 import './DashboardPage.css';
 
-// ── CUSTOM HIGH-PERFORMANCE SVG CHART ──
+
+
 function CustomTelemetryChart({ data }) {
+  // 1. ADD STATE: To track the currently hovered coordinate point [1]
+  const [hoveredPoint, setHoveredPoint] = useState(null);
+
   if (data.length < 2) {
     return (
       <div className="no-data-placeholder">
@@ -15,16 +19,18 @@ function CustomTelemetryChart({ data }) {
   }
 
   const width = 800;
-  const height = 400;
+  const height = 250;
   const padding = 40;
   const tpsValues = data.map((d) => d.tps);
-  const maxTps = Math.max(...tpsValues, 30000);
-  const minTps = Math.min(...tpsValues, 0);
-  const tpsRange = (maxTps - minTps)/2 || 1;
+  
+  const rawMaxTps = Math.max(...tpsValues, 10000);
+  const maxTps = rawMaxTps * 1.15; 
+  const minTps = Math.min(...tpsValues, 0);    
+  const tpsRange = (maxTps - minTps) / 2 || 1; 
 
   const points = data.map((d, index) => {
     const x = padding + (index / (data.length - 1)) * (width - 2 * padding);
-    const y = height - padding - ((d.tps - minTps) / tpsRange) * (height - 2 * padding);
+    const y = height - padding - ((d.tps - minTps) / tpsRange) * ((height - 2 * padding) / 2);
     return { x, y, tps: d.tps, label: d.time };
   });
 
@@ -35,39 +41,64 @@ function CustomTelemetryChart({ data }) {
   const areaD = `${pathD} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`;
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="svg-chart-element">
-      <defs>
-        <linearGradient id="chartGlow" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
-        </linearGradient>
-      </defs>
+    // 2. WRAPPER CONTAINER: Uses relative positioning to anchor the floating tooltip HTML [1]
+    <div className="svg-chart-relative-container" style={{ position: 'relative', width: '100%' }}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="svg-chart-element">
+        <defs>
+          <linearGradient id="chartGlow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
 
-      <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#333" strokeWidth="1" />
-      <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#222" strokeWidth="1" strokeDasharray="4,4" />
-      <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#222" strokeWidth="1" strokeDasharray="4,4" />
+        {/* Grid Guidelines */}
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#333" strokeWidth="1" />
+        <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#222" strokeWidth="1" strokeDasharray="4,4" />
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="#222" strokeWidth="1" strokeDasharray="4,4" />
 
-      <path d={areaD} fill="url(#chartGlow)" />
+        {/* Area & Line Paths */}
+        <path d={areaD} fill="url(#chartGlow)" />
+        <path d={pathD} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" />
 
-      <path d={pathD} fill="none" stroke="#4f46e5" strokeWidth="3" strokeLinecap="round" />
+        {/* Data Interactive Dots with Hover Listeners [1] */}
+        {points.map((p, i) => (
+          <g 
+            key={i} 
+            className="chart-dot-group"
+            onMouseEnter={() => setHoveredPoint(p)} // Capture point coordinates on hover [1]
+            onMouseLeave={() => setHoveredPoint(null)} // Dismiss tooltip on leave [1]
+          >
+            <circle cx={p.x} cy={p.y} r="4" fill="#818cf8" stroke="#121212" strokeWidth="1.5" />
+          </g>
+        ))}
 
-      {points.map((p, i) => (
-        <g key={i} className="chart-dot-group">
-          <circle cx={p.x} cy={p.y} r="4" fill="#818cf8" stroke="#121212" strokeWidth="1.5" />
-          <title>{`${p.tps.toLocaleString()} TPS at ${p.label}`}</title>
-        </g>
-      ))}
+        {/* Axis Labels */}
+        <text x={padding - 10} y={padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(maxTps / 1000)}k</text>
+        <text x={padding - 10} y={height / 2 + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor((maxTps + minTps) / 2000)}k</text>
+        <text x={padding - 10} y={height - padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(minTps)}</text>
 
-      <text x={padding - 10} y={padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(maxTps / 1000)}k</text>
-      <text x={padding - 10} y={height / 2 + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor((maxTps + minTps) / 2000)}k</text>
-      <text x={padding - 10} y={height - padding + 5} fill="#666" fontSize="10" textAnchor="end">{Math.floor(minTps)}</text>
+        <text x={padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Start</text>
+        <text x={width - padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Active</text>
+      </svg>
 
-      <text x={padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Start</text>
-      <text x={width - padding} y={height - padding + 20} fill="#666" fontSize="10" textAnchor="middle">Active</text>
-    </svg>
+      {/* 3. DYNAMIC HOVER TOOLTIP OVERLAY (Calculated dynamically using parent % coordinates) [1] */}
+      {hoveredPoint && (
+        <div 
+          className="chart-tooltip"
+          style={{
+            position: 'absolute',
+            left: `${(hoveredPoint.x / width) * 100}%`,
+            top: `${(hoveredPoint.y / height) * 100 - 6}%`, // Offset slightly on top of the dot
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="tooltip-time">Time: {hoveredPoint.label}</div>
+          <div className="tooltip-value">{hoveredPoint.tps.toLocaleString()} TPS</div>
+        </div>
+      )}
+    </div>
   );
 }
-
 export default function DashboardPage({ activeTest, onBackToUpload, onViewLeaderboard, userToken }) {
   const [progress, setProgress] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
