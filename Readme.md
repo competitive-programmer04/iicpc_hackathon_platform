@@ -14,7 +14,7 @@ The platform utilizes a decoupled, event-driven agent-controller architecture to
 5. [The Dual-Stream Testing Methodology](#5-the-dual-stream-testing-methodology)
 6. [Database Schemas & Analytical Scoring](#6-database-schemas--analytical-scoring)
 7. [gRPC Service Contract](#7-grpc-service-contract)
-8. [Key Design Decisions and Trade-offs](#8-Key Design Decisions and Trade-offs)
+8. [Key Design Decisions and Trade-offs](#8-Key-Design-Decisions-and-Trade-offs)
 9. [Infrastructure as Code (IaC)](#9-infrastructure-as-code-iac)
 10. [Future Scalability: Redis Pub/Sub](#10-future-scalability-redis-pubsub)
 11. [Directory Structure](#11-directory-structure)
@@ -322,6 +322,7 @@ In building a distributed High-Frequency Trading benchmark, we navigated several
 
 
 
+
 ## 9. Infrastructure as Code (IaC)
 
 
@@ -331,13 +332,13 @@ By mounting /var/run/docker.sock, the orchestrator natively executes Docker-out-
 
 Advanced Infrastructure Features:
 
-Zero-Trust Network Perimeter: All core services communicate over an isolated internal Docker bridge network (project_network). Ports for Redis, TimescaleDB, and the Go Load Generator are intentionally not exposed to the host OS, making them completely invisible to external network port-scanners.
+**Zero-Trust Network Perimeter**: All core services communicate over an isolated internal Docker bridge network (project_network). Ports for Redis, TimescaleDB, and the Go Load Generator are intentionally not exposed to the host OS, making them completely invisible to external network port-scanners.
 
-Environment Parity & Secrets Management: Configuration and secrets are strictly decoupled from the codebase. By injecting .env variables at runtime, the exact same docker-compose.yml file is used for both local Windows/WSL development and production Ubuntu cloud deployments.
+**Environment Parity & Secrets Management**: Configuration and secrets are strictly decoupled from the codebase. By injecting .env variables at runtime, the exact same docker-compose.yml file is used for both local Windows/WSL development and production Ubuntu cloud deployments.
 
-Automated Database Bootstrapping: To eliminate manual database administration, the TimescaleDB container utilizes a bind mount to inject an init.sql script on startup. This automatically provisions the relational schemas and configures the TIMESTAMPTZ Hypertables on the very first boot.
+**Automated Database Bootstrapping**: To eliminate manual database administration, the TimescaleDB container utilizes a bind mount to inject an init.sql script on startup. This automatically provisions the relational schemas and configures the TIMESTAMPTZ Hypertables on the very first boot.
 
-Persistent Telemetry Volumes: Container lifecycles are ephemeral, but telemetry data is not. We utilize Docker Named Volumes (iicpc_hackathon_volume) to ensure that all leaderboard data and database states survive container restarts and platform updates.
+**Persistent Telemetry Volumes**: Container lifecycles are ephemeral, but telemetry data is not. We utilize Docker Named Volumes (iicpc_hackathon_volume) to ensure that all leaderboard data and database states survive container restarts and platform updates.
 
 
 
