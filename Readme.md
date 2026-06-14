@@ -14,9 +14,10 @@ The platform utilizes a decoupled, event-driven agent-controller architecture to
 5. [The Dual-Stream Testing Methodology](#5-the-dual-stream-testing-methodology)
 6. [Database Schemas & Analytical Scoring](#6-database-schemas--analytical-scoring)
 7. [gRPC Service Contract](#7-grpc-service-contract)
-8. [Infrastructure as Code (IaC)](#8-infrastructure-as-code-iac)
-9. [Future Scalability: Redis Pub/Sub](#9-future-scalability-redis-pubsub)
-10. [Directory Structure](#10-directory-structure)
+8. [Key Design Decisions and Trade-offs](#8-Key Design Decisions and Trade-offs)
+9. [Infrastructure as Code (IaC)](#9-infrastructure-as-code-iac)
+10. [Future Scalability: Redis Pub/Sub](#10-future-scalability-redis-pubsub)
+11. [Directory Structure](#11-directory-structure)
 
 ---
 
@@ -43,6 +44,18 @@ The platform isolates untrusted user binaries using a strictly decoupled executi
 |                       |                                             |                               |
 +-----------------------+                                             +-------------------------------+
 ```
+
+### System Assumptions & Constraints
+To maintain a deterministic testing environment, this platform operates on the following architectural assumptions:
+
+* **Network Binding:** The contestant's engine will bind exclusively to `0.0.0.0:8080` internally.
+
+* **Payload Serialization:** Contestants must natively handle JSON parsing without external dependencies.
+
+* **Stateless Execution:** The contestant engine is treated as a volatile, stateless entity; if it crashes due to an OOM (Out of Memory) event, it will not be restarted, and the test immediately concludes.
+
+* **Host Compatibility:** C++ trading engines must be strictly statically linked to Linux x86_64 (or compiled on a matching ubuntu:24.04 base) to prevent glibc mismatch errors across container environments. Go and Rust binaries must similarly disable CGO or target musl for clean execution.
+
 
 
 ## 2. Contestant Guide: Building Statically Linked Binaries
@@ -178,8 +191,11 @@ FIFO Job Scheduler: Enqueues incoming compilation and benchmarking tasks onto a 
 
 Real-time Streaming: Opens unidirectional HTTP channels (text/event-stream) via Server-Sent Events (SSE) to instantly pipe execution metrics directly from the backend event bus to the React dashboard.
 
-Secure Sandbox Containerizer
+Secure Sandbox Containerizer:-
+
 Isolation Layers: Wraps untrusted user binaries inside a stripped-down ubuntu:24.04 container running as an unprivileged system user (nobody / UID 65534), protected by --security-opt no-new-privileges.
+
+Implementation Detail (DooD vs DinD): Rather than running privileged Docker-in-Docker (DinD)—which exposes massive security vulnerabilities—we implemented Docker-out-of-Docker (DooD). By mounting /var/run/docker.sock, the Node.js orchestrator acts only as a client, commanding the host daemon to spawn sibling containers safely.
 
 Hardware Bounds: Caps resource allocations to exactly 1 CPU Core and restricts memory usage to a hard roof of 1GB RAM via Docker Engine resource flags.
 
@@ -195,6 +211,8 @@ Fan-In WebSocket Multiplexing: To bypass Ephemeral Port Exhaustion, it multiplex
 Write Coalescing Telemetry: A background worker collects latency results and flushes them to Redis via a single RPUSH command every 100ms or 1,000 items, reducing database network traffic by 99.9%.
 
 O(1) Lock-Free State: Tracks in-flight orders without CPU lock contention by leveraging Go’s native sync.Map, utilizing atomic hardware-level memory operations instead of coarse-grained RWMutex locks.
+
+Implementation Detail (Latency Probing): While kernel-level eBPF (kprobes) could be used to track TCP socket latency directly at the OS level, we implemented latency tracking at the User-Space application layer using Go's time.Now().UnixMilli(). Coupled with Go's epoll network scheduler, this provides microsecond accuracy without requiring root/privileged access to the host kernel.
 
 
 ## 5. The Dual-Stream Testing Methodology
@@ -287,17 +305,43 @@ message StoppingResponse {
 ```
 
 
+## 8. Key Design Decisions & Trade-offs
 
-## 8. Infrastructure as Code (IaC)
+In building a distributed High-Frequency Trading benchmark, we navigated several critical engineering trade-offs:
+
+1. **WebSockets over HTTP REST**
+   * *The Trade-off:* WebSockets require complex state-management and asynchronous timeout sweeping, whereas HTTP is stateless and easy to implement.
+   * *The Decision:* We chose WebSockets to bypass **Ephemeral Port Exhaustion**. If 50,000 TPS were sent via HTTP, the OS would exhaust its 65,535 TCP ports and enter `TIME_WAIT` gridlock condition. Multiplexing over WebSockets allows infinite throughput on a single socket.
+
+2. **Decoupled Verification (The Sniper vs. Chaos Bots)**
+   * *The Trade-off:* Verifying Price-Time Priority dynamically across 100,000 requests requires O(N) memory scanning, which melts CPU resources. 
+   * *The Decision:* We separated the workload. 99% of bots generate chaotic load to measure pure hardware throughput. A separate, synchronized "Sniper Thread" operates on an isolated asset pair to mathematically verify algorithmic correctness (sorting and priority) without network jitter corrupting the data.
+
+3. **Time-Series Database over NoSQL**
+   * *The Decision:* We bypassed MongoDB/NoSQL in favor of TimescaleDB (PostgreSQL). By using `TIMESTAMPTZ` Hypertables, we enabled the platform to calculate dynamic composite scoring equations directly via SQL aggregations (`MAX`, `AVG`) rather than offloading heavy mathematical processing to the Node.js backend.
 
 
-To fulfill automated deployment requirements, the entire multi-tier environment (Node Controller Backend, Go Load Generator, Redis Cache, TimescaleDB Database, and Caddy Reverse Proxy) is containerized via Docker Compose for instant, one-click provisioning on cloud compute instances.
+
+## 9. Infrastructure as Code (IaC)
+
+
+To fulfill automated deployment requirements, the entire multi-tier environment (Node Controller Backend, Go Load Generator, Redis Cache, TimescaleDB Database, and Caddy Reverse Proxy) is containerized via Docker Compose for instant, one-click provisioning on cloud compute instances (e.g., AWS EC2, Azure, DigitalOcean).
 
 By mounting /var/run/docker.sock, the orchestrator natively executes Docker-out-of-Docker (DooD) sandbox provisioning without requiring nested virtualization overhead. Caddy auto-provisions Let's Encrypt SSL certificates to ensure End-to-End Encryption between the browser and the backend cluster.
 
+Advanced Infrastructure Features:
+
+Zero-Trust Network Perimeter: All core services communicate over an isolated internal Docker bridge network (project_network). Ports for Redis, TimescaleDB, and the Go Load Generator are intentionally not exposed to the host OS, making them completely invisible to external network port-scanners.
+
+Environment Parity & Secrets Management: Configuration and secrets are strictly decoupled from the codebase. By injecting .env variables at runtime, the exact same docker-compose.yml file is used for both local Windows/WSL development and production Ubuntu cloud deployments.
+
+Automated Database Bootstrapping: To eliminate manual database administration, the TimescaleDB container utilizes a bind mount to inject an init.sql script on startup. This automatically provisions the relational schemas and configures the TIMESTAMPTZ Hypertables on the very first boot.
+
+Persistent Telemetry Volumes: Container lifecycles are ephemeral, but telemetry data is not. We utilize Docker Named Volumes (iicpc_hackathon_volume) to ensure that all leaderboard data and database states survive container restarts and platform updates.
 
 
-## 9. Future Scalability: Redis Pub/Sub
+
+## 10. Future Scalability: Redis Pub/Sub
 
 
 While the current MVP operates the Go Load Generator as a single gRPC microservice capable of 50,000+ TPS (easily saturating the 1-core limit of contestant sandboxes), the architecture is designed for horizontal enterprise scalability.
@@ -305,7 +349,7 @@ To break past single-node TCP limits, the system can seamlessly pivot to a Redis
 
 
 
-## 10. Directory Structure
+## 11. Directory Structure
 ```
 IICPC_Hackathon_Platform/
 |── frontend/
