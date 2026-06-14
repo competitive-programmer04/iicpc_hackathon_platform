@@ -28,21 +28,21 @@ The platform utilizes a decoupled, event-driven agent-controller architecture to
 The platform isolates untrusted user binaries using a strictly decoupled execution pipeline. Core components communicate asynchronously via gRPC, WebSockets, and Server-Sent Events (SSE) to prevent blocking operations and eliminate noisy neighbor interference.
 
 ```text
-+-----------------------+              (gRPC / HTTP API)              +-------------------------------+
-|                       |                                             |                               |
-|   Node.js Backend     +-------------------------------------------->|   Remote Load Gen Agent       |
-|  (Controller Node)    |                                             |   (Dedicated Server VM)       |
-|                       |                                             |                               |
-+-----------+-----------+                                             +---------------+---------------+
-            |                                                                         |
-            | (Deploys via Socket)                                                    | (Bombards via WS)
-            v                                                                         v
-+-----------+-----------+                                             +---------------+---------------+
-|                       |                                             |                               |
-|   Contestant Sandbox  | <========================================== |      Go Bot Fleet Engine      |
-|  (Isolated Container) |             (Extreme Volatility)            |                               |
-|                       |                                             |                               |
-+-----------------------+                                             +-------------------------------+
++-----------------------+           (gRPC over HTTP/2)            +-------------------------------+
+|                       |                                         |                               |
+|   Node.js Backend     +---------------------------------------->|   Go Load Gen Service         |
+|  (Orchestrator Node)  |                                         |  (Microservice Container)     |
+|                       |                                         |                               |
++-----------+-----------+                                         +---------------+---------------+
+            |                                                                     |
+            | (Spawns via docker.sock)                                            | (Bombards via WS)
+            v                                                                     v
++-----------+-----------+                                         +---------------+---------------+
+|                       |                                         |                               |
+|   Contestant Sandbox  | <====================================== |      Go Bot Fleet Engine      |
+|  (Isolated Container) |          (Extreme Volatility)           |                               |
+|                       |                                         |                               |
++-----------------------+                                         +-------------------------------+
 ```
 
 ### System Assumptions & Constraints
@@ -339,6 +339,12 @@ Advanced Infrastructure Features:
 **Automated Database Bootstrapping**: To eliminate manual database administration, the TimescaleDB container utilizes a bind mount to inject an init.sql script on startup. This automatically provisions the relational schemas and configures the TIMESTAMPTZ Hypertables on the very first boot.
 
 **Persistent Telemetry Volumes**: Container lifecycles are ephemeral, but telemetry data is not. We utilize Docker Named Volumes (iicpc_hackathon_volume) to ensure that all leaderboard data and database states survive container restarts and platform updates.
+
+**CI/CD Pipeline**
+
+* *Frontend*: Triggered via Git pushes, Vercel automatically builds and deploys the Vite/React application to a global edge network, dynamically injecting production API URLs.
+
+* *Contestant Binaries (C++ Builder)*: To alleviate Windows/Mac compilation issues for contestants, a GitHub Actions workflow (ubuntu-24.04) is provided to automatically compile user C++ source code into strictly statically linked Linux binaries.
 
 
 
